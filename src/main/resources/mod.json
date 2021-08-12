@@ -1,10 +1,10 @@
 {
-	"main" : "fr.openent.jupyter-connector.Jupyter-connector",
+	"main" : "fr.openent.jupyter.Jupyter",
 	"port" : 8069,
-	"app-name" : "Jupyter-connector",
-	"app-address" : "/jupyter-connector",
+	"app-name" : "Jupyter",
+	"app-address" : "/jupyter",
 	"app-icon" : "jupyter-connector-large",
-	"app-displayName" : "Jupyter-connector",
+	"app-displayName" : "Jupyter",
 	"mode": "dev",
 	"entcore.port" : 8090,
 	"auto-redeploy": false
