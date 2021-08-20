@@ -8,6 +8,8 @@ import fr.openent.jupyter.utils.WorkspaceType;
 import fr.wseduc.rs.ApiDoc;
 import fr.wseduc.rs.Get;
 import fr.wseduc.rs.Put;
+import fr.wseduc.security.ActionType;
+import fr.wseduc.security.SecuredAction;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
@@ -29,6 +31,7 @@ public class ManagerController extends ControllerHelper {
 
     @Get("")
     @ApiDoc("Render view")
+    @SecuredAction(value = "", type = ActionType.AUTHENTICATED)
     public void render(HttpServerRequest request) {
         renderView(request, null, "jupyter-connector.html", null);
     }
