@@ -7,7 +7,9 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import org.entcore.common.storage.Storage;
 
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 public class DefaultStorageService implements StorageService {
@@ -24,14 +26,17 @@ public class DefaultStorageService implements StorageService {
         String contentType;
 
         switch (body.getString("format")) {
-            case "json": // Case notebook
+            case "json": // Case notebook created from Jupyter
                 content = body.getJsonObject("content").toString();
                 contentType = null;
                 break;
-            case "base64": // Cases file
-            case "text":
+            case "text": // Case text created from Jupyter
                 content = body.getString("content");
                 contentType = "text/plain";
+                break;
+            case "base64": // Case file imported in Jupyter from local computer
+                content = new String(Base64.getDecoder().decode(body.getString("content")));
+                contentType = URLConnection.getFileNameMap().getContentTypeFor(body.getString("name"));
                 break;
             default:
                 handler.handle(new Either.Left<>("[DefaultFileService@getFile] File type unknown : " + body.getString("format")));
