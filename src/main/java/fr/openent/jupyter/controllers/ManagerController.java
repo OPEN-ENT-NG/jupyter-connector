@@ -1,7 +1,9 @@
 package fr.openent.jupyter.controllers;
 
+import fr.openent.jupyter.Jupyter;
 import fr.openent.jupyter.models.Directory;
 import fr.openent.jupyter.models.File;
+import fr.openent.jupyter.security.AccessRight;
 import fr.openent.jupyter.service.DocumentService;
 import fr.openent.jupyter.service.Impl.DefaultDocumentService;
 import fr.openent.jupyter.utils.WorkspaceType;
@@ -16,6 +18,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.entcore.common.controller.ControllerHelper;
+import org.entcore.common.http.filter.ResourceFilter;
 import org.entcore.common.neo4j.Neo4j;
 import org.entcore.common.neo4j.Neo4jResult;
 import org.entcore.common.storage.Storage;
@@ -31,13 +34,15 @@ public class ManagerController extends ControllerHelper {
 
     @Get("")
     @ApiDoc("Render view")
-    @SecuredAction(value = "", type = ActionType.AUTHENTICATED)
+    @SecuredAction(Jupyter.ACCESS_RIGHT)
     public void render(HttpServerRequest request) {
         renderView(request, null, "jupyter-connector.html", null);
     }
 
     @Get("/userinfos")
     @ApiDoc("Get user infos from Neo4j")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getUserInfos(HttpServerRequest request) {
             JsonObject params = new JsonObject().put("JUPYTERHUB_USER", request.getParam("user"));
             String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u";
@@ -52,6 +57,8 @@ public class ManagerController extends ControllerHelper {
 
     @Put("/rename")
     @ApiDoc("Rename a specific file or directory")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void rename(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String name = request.getParam("name");

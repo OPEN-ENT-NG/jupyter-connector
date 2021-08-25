@@ -2,10 +2,13 @@ package fr.openent.jupyter.controllers;
 
 import fr.openent.jupyter.models.Directory;
 import fr.openent.jupyter.models.File;
+import fr.openent.jupyter.security.AccessRight;
 import fr.openent.jupyter.service.DocumentService;
 import fr.openent.jupyter.service.Impl.DefaultDocumentService;
 import fr.openent.jupyter.utils.WorkspaceType;
 import fr.wseduc.rs.*;
+import fr.wseduc.security.ActionType;
+import fr.wseduc.security.SecuredAction;
 import fr.wseduc.webutils.request.RequestUtils;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerRequest;
@@ -15,6 +18,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.entcore.common.bus.WorkspaceHelper;
 import org.entcore.common.controller.ControllerHelper;
+import org.entcore.common.http.filter.ResourceFilter;
 import org.entcore.common.storage.Storage;
 
 import static org.entcore.common.http.response.DefaultResponseHandler.defaultResponseHandler;
@@ -32,6 +36,8 @@ public class DirectoryController extends ControllerHelper {
 
     @Get("/directory/base")
     @ApiDoc("Get src directory")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getBaseDirectory(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
@@ -86,6 +92,8 @@ public class DirectoryController extends ControllerHelper {
 
     @Get("/directory")
     @ApiDoc("Get a specific directory")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getDirectory(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
@@ -104,6 +112,8 @@ public class DirectoryController extends ControllerHelper {
 
     @Post("/directory")
     @ApiDoc("Create a new directory")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void createDirectory(HttpServerRequest request) {
         String userId = request.headers().get("User-Id");
         String userName = request.headers().get("User-Name");
@@ -112,6 +122,8 @@ public class DirectoryController extends ControllerHelper {
 
     @Delete("/directory")
     @ApiDoc("Delete a specific directory")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void deleteDirectory(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");

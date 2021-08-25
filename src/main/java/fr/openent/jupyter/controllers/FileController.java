@@ -1,11 +1,15 @@
 package fr.openent.jupyter.controllers;
 
+import fr.openent.jupyter.Jupyter;
 import fr.openent.jupyter.models.File;
+import fr.openent.jupyter.security.AccessRight;
 import fr.openent.jupyter.service.DocumentService;
 import fr.openent.jupyter.service.Impl.DefaultDocumentService;
 import fr.openent.jupyter.service.Impl.DefaultStorageService;
 import fr.openent.jupyter.service.StorageService;
 import fr.wseduc.rs.*;
+import fr.wseduc.security.ActionType;
+import fr.wseduc.security.SecuredAction;
 import fr.wseduc.webutils.request.RequestUtils;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerRequest;
@@ -14,6 +18,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.entcore.common.bus.WorkspaceHelper;
 import org.entcore.common.controller.ControllerHelper;
+import org.entcore.common.http.filter.ResourceFilter;
 import org.entcore.common.storage.Storage;
 import org.entcore.common.user.UserInfos;
 
@@ -38,6 +43,8 @@ public class FileController extends ControllerHelper {
 
     @Get("/file")
     @ApiDoc("Get a specific file")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
 
@@ -50,14 +57,36 @@ public class FileController extends ControllerHelper {
                     JsonObject file = new File(document).toJson();
 
                     switch (file.getString("format")) {
-                        case "json": // Case notebook
+                        case "json": // Case notebook created from Jupyter
                             file.put("content", content.toJsonObject());
                             break;
-                        case "text": // Case file text
+                        case "text": // Case file text created from Jupyter
                             file.put("content", content.toString());
                             break;
-                        case "base64": // Case file not text
-                            file.put("content", Base64.getEncoder().encodeToString(content.getBytes()));
+                        case "base64": // Case file imported from Jupyter or Workspace
+                            String docName = document.getString("name");
+                            if (docName.contains(".")) {
+                                String fileExtension = docName.substring(docName.lastIndexOf("."));
+
+                                if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook en base64
+                                    file.put("content", content.toJsonObject());
+                                    file.remove("format"); file.put("format", "json");
+                                    file.remove("mimetype"); file.put("mimetype", (String)null);
+                                }
+                                else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text en base64
+                                    String finalContent = new String(Base64.getDecoder().decode(content.toString()));
+                                    file.put("content", finalContent);
+                                    file.remove("format"); file.put("format", "json");
+                                }
+                                else { // Case other type files, to put in base64
+                                    String finalContent = Base64.getEncoder().encodeToString(content.getBytes());
+                                    file.put("content", finalContent);
+                                }
+                            }
+                            else {
+                                log.error("[Jupyter@getFile] Filename does not contains extension : " + docName);
+                                badRequest(request);
+                            }
                             break;
                         default:
                             log.error("[Jupyter@getFile] File format unknown : " + file.getString("format"));
@@ -76,6 +105,8 @@ public class FileController extends ControllerHelper {
 
     @Post("/file")
     @ApiDoc("Create a new file")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void createFile(HttpServerRequest request) {
         UserInfos user = new UserInfos();
         user.setUserId(request.headers().get("User-Id"));
@@ -93,7 +124,6 @@ public class FileController extends ControllerHelper {
                             JsonObject doc = createEvent.result().body();
 
                             JsonObject file = new File(doc).toJson();
-                            log.info("[Jupyter@createFile] File created for path '" + body.getString("path") + "' with body " + body);
 
                             String parentId = body.getString("parent_id");
                             if (parentId == null || parentId.isEmpty()) { // If parent is base directory there's no need to move the document
@@ -127,6 +157,8 @@ public class FileController extends ControllerHelper {
 
     @Put("/file")
     @ApiDoc("Update a specific file")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void updateFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
 
@@ -172,6 +204,8 @@ public class FileController extends ControllerHelper {
 
     @Delete("/file")
     @ApiDoc("Delete a specific file")
+    @ResourceFilter(AccessRight.class)
+    @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void deleteFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");

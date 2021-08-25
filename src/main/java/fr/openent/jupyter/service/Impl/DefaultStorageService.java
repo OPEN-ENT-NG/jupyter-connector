@@ -1,5 +1,6 @@
 package fr.openent.jupyter.service.Impl;
 
+import fr.openent.jupyter.Jupyter;
 import fr.openent.jupyter.service.StorageService;
 import fr.wseduc.webutils.Either;
 import io.vertx.core.Handler;
@@ -23,27 +24,50 @@ public class DefaultStorageService implements StorageService {
     @Override
     public void add(JsonObject body, Handler<Either<String, JsonObject>> handler) {
         String content;
+        byte[] byteContent;
         String contentType;
 
         switch (body.getString("format")) {
             case "json": // Case notebook created from Jupyter
                 content = body.getJsonObject("content").toString();
+                byteContent = content.getBytes(StandardCharsets.UTF_8);
                 contentType = null;
                 break;
             case "text": // Case text created from Jupyter
-                content = body.getString("content");
+                byteContent = body.getString("content").getBytes(StandardCharsets.UTF_8);
                 contentType = "text/plain";
                 break;
             case "base64": // Case file imported in Jupyter from local computer
-                content = new String(Base64.getDecoder().decode(body.getString("content")));
-                contentType = URLConnection.getFileNameMap().getContentTypeFor(body.getString("name"));
+                String docName = body.getString("name");
+                if (docName.contains(".")) {
+                    String fileExtension = docName.substring(docName.lastIndexOf("."));
+
+                    if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook
+                        content = new String(Base64.getDecoder().decode(body.getString("content")));
+                        byteContent = content.getBytes(StandardCharsets.UTF_8);
+                        contentType = null;
+                    }
+                    else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text
+                        content = new String(Base64.getDecoder().decode(body.getString("content")));
+                        byteContent = content.getBytes(StandardCharsets.UTF_8);
+                        contentType = URLConnection.getFileNameMap().getContentTypeFor(docName);
+                    }
+                    else { // Case other type files
+                        byteContent = Base64.getDecoder().decode(body.getString("content").getBytes(StandardCharsets.UTF_8));
+                        contentType = URLConnection.getFileNameMap().getContentTypeFor(docName);
+                    }
+                }
+                else {
+                    handler.handle(new Either.Left<>("[DefaultFileService@getFile] Filename does not contains extension : " + docName));
+                    return;
+                }
                 break;
             default:
                 handler.handle(new Either.Left<>("[DefaultFileService@getFile] File type unknown : " + body.getString("format")));
                 return;
         }
 
-        Buffer buffer = Buffer.buffer(content.getBytes(StandardCharsets.UTF_8));
+        Buffer buffer = Buffer.buffer(byteContent);
         storage.writeBuffer(UUID.randomUUID().toString(), buffer, contentType, body.getString("name"), file -> {
             if ("ok".equals(file.getString("status"))) {
                 handler.handle(new Either.Right<>(file));
