@@ -78,3 +78,4 @@ public class CheckpointController extends ControllerHelper {
     public void renameCheckpoint(HttpServerRequest request) {
     }
 }
+

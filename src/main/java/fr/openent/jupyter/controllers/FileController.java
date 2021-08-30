@@ -1,6 +1,8 @@
 package fr.openent.jupyter.controllers;
 
 import fr.openent.jupyter.Jupyter;
+import fr.openent.jupyter.helper.ParametersHelper;
+import fr.openent.jupyter.models.Directory;
 import fr.openent.jupyter.models.File;
 import fr.openent.jupyter.security.AccessRight;
 import fr.openent.jupyter.service.DocumentService;
@@ -48,57 +50,75 @@ public class FileController extends ControllerHelper {
     public void getFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
 
-        workspaceHelper.getDocument(entId, getDocumentEvent -> {
-            if (getDocumentEvent.succeeded()) {
-                JsonObject document = getDocumentEvent.result().body().getJsonObject("result");
-                String id = document.getString("file");
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {entId}, handler -> {
+            if (handler.isRight()) {
+                workspaceHelper.getDocument(entId, getDocumentEvent -> {
+                    if (getDocumentEvent.succeeded()) {
+                        JsonObject document = getDocumentEvent.result().body().getJsonObject("result");
 
-                workspaceHelper.readFile(id, content -> {
-                    JsonObject file = new File(document).toJson();
+                        if (document != null) {
+                            String id = document.getString("file");
+                            workspaceHelper.readFile(id, content -> {
+                                if (content != null) {
+                                    JsonObject file = new File(document).toJson();
 
-                    switch (file.getString("format")) {
-                        case "json": // Case notebook created from Jupyter
-                            file.put("content", content.toJsonObject());
-                            break;
-                        case "text": // Case file text created from Jupyter
-                            file.put("content", content.toString());
-                            break;
-                        case "base64": // Case file imported from Jupyter or Workspace
-                            String docName = document.getString("name");
-                            if (docName.contains(".")) {
-                                String fileExtension = docName.substring(docName.lastIndexOf("."));
+                                    switch (file.getString("format")) {
+                                        case "json": // Case notebook created from Jupyter
+                                            file.put("content", content.toJsonObject());
+                                            break;
+                                        case "text": // Case file text created from Jupyter
+                                            file.put("content", content.toString());
+                                            break;
+                                        case "base64": // Case file imported from Jupyter or Workspace
+                                            String docName = document.getString("name");
+                                            if (docName.contains(".")) {
+                                                String fileExtension = docName.substring(docName.lastIndexOf("."));
 
-                                if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook en base64
-                                    file.put("content", content.toJsonObject());
-                                    file.remove("format"); file.put("format", "json");
-                                    file.remove("mimetype"); file.put("mimetype", (String)null);
+                                                if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook en base64
+                                                    file.put("content", content.toJsonObject());
+                                                    file.remove("format");
+                                                    file.put("format", "json");
+                                                    file.remove("mimetype");
+                                                    file.put("mimetype", (String) null);
+                                                }
+                                                else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text en base64
+                                                    String finalContent = new String(Base64.getDecoder().decode(content.toString()));
+                                                    file.put("content", finalContent);
+                                                    file.remove("format");
+                                                    file.put("format", "json");
+                                                }
+                                                else { // Case other type files, to put in base64
+                                                    String finalContent = Base64.getEncoder().encodeToString(content.getBytes());
+                                                    file.put("content", finalContent);
+                                                }
+                                            }
+                                            else {
+                                                badRequest(request, "[Jupyter@getFile] Filename does not contains extension : " + docName);
+                                            }
+                                            break;
+                                        default:
+                                            log.error("[Jupyter@getFile] File format unknown : " + file.getString("format"));
+                                            break;
+                                    }
+
+                                    renderJson(request, file);
                                 }
-                                else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text en base64
-                                    String finalContent = new String(Base64.getDecoder().decode(content.toString()));
-                                    file.put("content", finalContent);
-                                    file.remove("format"); file.put("format", "json");
+                                else {
+                                    badRequest(request, "[Jupyter@getFile] No file found in storage for id : " + id);
                                 }
-                                else { // Case other type files, to put in base64
-                                    String finalContent = Base64.getEncoder().encodeToString(content.getBytes());
-                                    file.put("content", finalContent);
-                                }
-                            }
-                            else {
-                                log.error("[Jupyter@getFile] Filename does not contains extension : " + docName);
-                                badRequest(request);
-                            }
-                            break;
-                        default:
-                            log.error("[Jupyter@getFile] File format unknown : " + file.getString("format"));
-                            break;
+                            });
+                        }
+                        else {
+                            badRequest(request, "[Jupyter@getFile] No document found for entId : " + entId);
+                        }
                     }
-
-                    renderJson(request, file);
+                    else {
+                        badRequest(request, "[Jupyter@getFile] Fail to get document from workspace : " + getDocumentEvent.cause().getMessage());
+                    }
                 });
             }
             else {
-                log.error("[Jupyter@getFile] Fail to get document from workspace : " + getDocumentEvent.cause().getMessage());
-                badRequest(request);
+                badRequest(request, "[Jupyter@getFile] " + handler.left().getValue());
             }
         });
     }
@@ -108,50 +128,57 @@ public class FileController extends ControllerHelper {
     @ResourceFilter(AccessRight.class)
     @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void createFile(HttpServerRequest request) {
-        UserInfos user = new UserInfos();
-        user.setUserId(request.headers().get("User-Id"));
-        user.setUsername(request.headers().get("User-Name"));
+        String userId = request.headers().get("User-Id");
+        String userName = request.headers().get("User-Name");
 
-        RequestUtils.bodyToJson(request, body -> {
-            storageService.add(body, addFileEvent -> {
-                if (addFileEvent.isRight()) {
-                    JsonObject storageEntries = addFileEvent.right().getValue();
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {userId, userName}, handler -> {
+            if (handler.isRight()) {
+                UserInfos user = new UserInfos();
+                user.setUserId(userId);
+                user.setUsername(userName);
 
-                    String name = body.getString("name");
-                    String application = config.getString("app-name");
-                    workspaceHelper.addDocument(storageEntries, user, name, application, false, null, createEvent -> {
-                        if (createEvent.succeeded()) {
-                            JsonObject doc = createEvent.result().body();
+                RequestUtils.bodyToJson(request, body -> {
+                    storageService.add(body, addFileEvent -> {
+                        if (addFileEvent.isRight()) {
+                            JsonObject storageEntries = addFileEvent.right().getValue();
 
-                            JsonObject file = new File(doc).toJson();
+                            String name = body.getString("name");
+                            String application = config.getString("app-name");
+                            workspaceHelper.addDocument(storageEntries, user, name, application, false, null, createEvent -> {
+                                if (createEvent.succeeded()) {
+                                    JsonObject doc = createEvent.result().body();
 
-                            String parentId = body.getString("parent_id");
-                            if (parentId == null || parentId.isEmpty()) { // If parent is base directory there's no need to move the document
-                                renderJson(request, file, 200);
-                            }
-                            else {
-                                workspaceHelper.moveDocument(file.getString("id"), parentId, user, moveEvent -> {
-                                    if (moveEvent.succeeded()) {
+                                    JsonObject file = new File(doc).toJson();
+
+                                    String parentId = body.getString("parent_id");
+                                    if (parentId == null || parentId.isEmpty()) { // If parent is base directory there's no need to move the document
                                         renderJson(request, file, 200);
                                     }
                                     else {
-                                        log.error("[Jupyter@createFile] Failed to move a workspace document : " + moveEvent.cause().getMessage());
-                                        badRequest(request);
+                                        workspaceHelper.moveDocument(file.getString("id"), parentId, user, moveEvent -> {
+                                            if (moveEvent.succeeded()) {
+                                                renderJson(request, file, 200);
+                                            }
+                                            else {
+                                                badRequest(request, "[Jupyter@createFile] Failed to move a workspace document : " + moveEvent.cause().getMessage());
+                                            }
+                                        });
                                     }
-                                });
-                            }
+                                }
+                                else {
+                                    badRequest(request, "[Jupyter@createFile] Failed to create a workspace document : " + createEvent.cause().getMessage());
+                                }
+                            });
                         }
                         else {
-                            log.error("[Jupyter@createFile] Failed to create a workspace document : " + createEvent.cause().getMessage());
-                            badRequest(request);
+                            badRequest(request, "[Jupyter@createFile] Failed to create a new entry in the storage");
                         }
                     });
-                }
-                else {
-                    log.error("[Jupyter@createFile] Failed to create a new entry in the storage");
-                    badRequest(request);
-                }
-            });
+                });
+            }
+            else {
+                badRequest(request, "[Jupyter@createFile] " + handler.left().getValue());
+            }
         });
     }
 
@@ -162,43 +189,53 @@ public class FileController extends ControllerHelper {
     public void updateFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
 
-        RequestUtils.bodyToJson(request, body -> {
-            storageService.add(body, addFileEvent -> {
-                if (addFileEvent.isRight()) {
-                    JsonObject uploaded = addFileEvent.right().getValue();
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {entId}, handler -> {
+            if (handler.isRight()) {
+                RequestUtils.bodyToJson(request, body -> {
+                    storageService.add(body, addFileEvent -> {
+                        if (addFileEvent.isRight()) {
+                            JsonObject uploaded = addFileEvent.right().getValue();
 
-                    documentService.update(entId, uploaded, updateEvent -> {
-                        if (updateEvent.isRight()) {
-                            log.info("[Jupyter@updateFile] File updated for path '" + body.getString("path") + "' with body " + body);
+                            documentService.update(entId, uploaded, updateEvent -> {
+                                if (updateEvent.isRight()) {
+                                    log.info("[Jupyter@updateFile] File updated for path '" + body.getString("path") + "' with body " + body);
 
-                            workspaceHelper.getDocument(entId, getDocumentEvent -> {
-                                if (getDocumentEvent.succeeded()) {
-                                    JsonObject document = getDocumentEvent.result().body().getJsonObject("result");
-                                    JsonObject file = new File(document).toJson();
-                                    renderJson(request, file);
+                                    workspaceHelper.getDocument(entId, getDocumentEvent -> {
+                                        if (getDocumentEvent.succeeded()) {
+                                            JsonObject document = getDocumentEvent.result().body().getJsonObject("result");
+                                            if (document != null) {
+                                                JsonObject file = new File(document).toJson();
+                                                renderJson(request, file);
+                                            }
+                                            else {
+                                                badRequest(request, "[Jupyter@getFile] No document found for entId : " + entId);
+                                            }
+                                        }
+                                        else {
+                                            badRequest(request, "[Jupyter@updateFile] Fail to get document from workspace : " + getDocumentEvent.cause().getMessage());
+                                        }
+                                    });
                                 }
                                 else {
-                                    log.error("[Jupyter@updateFile] Fail to get document from workspace : " + getDocumentEvent.cause().getMessage());
-                                    badRequest(request);
+                                    log.error("[Jupyter@updateFile] Failed to update document with new storage id : " + updateEvent.left().getValue());
+                                    storage.removeFile(uploaded.getString("_id"), event -> {
+                                        if (!"ok".equals(event.getString("status"))) {
+                                            log.error("[Jupyter@updateFile] Error removing file " + uploaded.getString("_id") + " : " + event.getString("message"));
+                                        }
+                                        badRequest(request);
+                                    });
                                 }
                             });
                         }
                         else {
-                            log.error("[Jupyter@updateFile] Failed to update document with new storage id : " + updateEvent.left().getValue());
-                            storage.removeFile(uploaded.getString("_id"), event -> {
-                                if (!"ok".equals(event.getString("status"))) {
-                                    log.error("[Jupyter@updateFile] Error removing file " + uploaded.getString("_id") + " : " + event.getString("message"));
-                                }
-                                badRequest(request);
-                            });
+                            badRequest(request, addFileEvent.left().getValue());
                         }
                     });
-                }
-                else {
-                    log.error(addFileEvent.left().getValue());
-                    badRequest(request);
-                }
-            });
+                });
+            }
+            else {
+                badRequest(request, "[Jupyter@updateFile] " + handler.left().getValue());
+            }
         });
     }
 
@@ -209,6 +246,14 @@ public class FileController extends ControllerHelper {
     public void deleteFile(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
-        documentService.delete(entId, userId, defaultResponseHandler(request));
+
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {entId, userId}, handler -> {
+            if (handler.isRight()) {
+                documentService.delete(entId, userId, defaultResponseHandler(request));
+            }
+            else {
+                badRequest(request, "[Jupyter@deleteFile] " + handler.left().getValue());
+            }
+        });
     }
 }

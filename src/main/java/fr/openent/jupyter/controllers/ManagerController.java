@@ -1,6 +1,7 @@
 package fr.openent.jupyter.controllers;
 
 import fr.openent.jupyter.Jupyter;
+import fr.openent.jupyter.helper.ParametersHelper;
 import fr.openent.jupyter.models.Directory;
 import fr.openent.jupyter.models.File;
 import fr.openent.jupyter.security.AccessRight;
@@ -44,15 +45,30 @@ public class ManagerController extends ControllerHelper {
     @ResourceFilter(AccessRight.class)
     @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getUserInfos(HttpServerRequest request) {
-            JsonObject params = new JsonObject().put("JUPYTERHUB_USER", request.getParam("user"));
-            String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u";
-            Neo4j.getInstance().execute(queryUsersNeo4j, params, Neo4jResult.validUniqueResultHandler(user -> {
-                if (user.isRight()) {
-                    renderJson(request, user.right().getValue().getJsonObject("u").getJsonObject("data"));
-                } else {
-                    log.error("[Jupyter@getUserInfos] Fail to get users' infos from Neo4j");
-                }
-            }));
+        String user = request.getParam("user");
+
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {user}, handler -> {
+           if (handler.isRight()) {
+               JsonObject params = new JsonObject().put("JUPYTERHUB_USER", request.getParam("user"));
+               String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u";
+               Neo4j.getInstance().execute(queryUsersNeo4j, params, Neo4jResult.validUniqueResultHandler(getNeoEvent -> {
+                   if (getNeoEvent.isRight()) {
+                       JsonObject userinfos = getNeoEvent.right().getValue();
+                       if (userinfos != null && !userinfos.isEmpty()) {
+                           renderJson(request, userinfos.getJsonObject("u").getJsonObject("data"));
+                       }
+                       else {
+                           badRequest(request, "[Jupyter@getUserInfos] Incorrect user");
+                       }
+                   } else {
+                       badRequest(request, "[Jupyter@getUserInfos] Fail to get users' infos from Neo4j : " + getNeoEvent.left().getValue());
+                   }
+               }));
+           }
+           else {
+               badRequest(request, "[Jupyter@getUserInfos] " + handler.left().getValue());
+           }
+        });
     }
 
     @Put("/rename")
@@ -64,20 +80,26 @@ public class ManagerController extends ControllerHelper {
         String name = request.getParam("name");
         String userId = request.headers().get("User-Id");
 
-        documentService.rename(entId, userId, name, renameItem -> {
-            if (renameItem.isRight()) {
-                JsonObject item = renameItem.right().getValue();
+        ParametersHelper.hasMissingOrEmptyParameters(new String[] {entId, name, userId}, handler -> {
+            if (handler.isRight()) {
+                documentService.rename(entId, userId, name, renameItem -> {
+                    if (renameItem.isRight()) {
+                        JsonObject item = renameItem.right().getValue();
 
-                if (item.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
-                    renderJson(request, new Directory(item).toJson());
-                }
-                else {
-                    renderJson(request, new File(item).toJson().put("content", ""));
-                }
+                        if (item.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
+                            renderJson(request, new Directory(item).toJson());
+                        }
+                        else {
+                            renderJson(request, new File(item).toJson().put("content", ""));
+                        }
+                    }
+                    else {
+                        badRequest(request, renameItem.left().getValue());
+                    }
+                });
             }
             else {
-                log.error(renameItem.left().getValue());
-                badRequest(request);
+                badRequest(request, "[Jupyter@rename] " + handler.left().getValue());
             }
         });
     }

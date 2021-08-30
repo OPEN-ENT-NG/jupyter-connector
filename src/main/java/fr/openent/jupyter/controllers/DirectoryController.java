@@ -1,5 +1,6 @@
 package fr.openent.jupyter.controllers;
 
+import fr.openent.jupyter.helper.ParametersHelper;
 import fr.openent.jupyter.models.Directory;
 import fr.openent.jupyter.models.File;
 import fr.openent.jupyter.security.AccessRight;
@@ -42,14 +43,15 @@ public class DirectoryController extends ControllerHelper {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
 
-        if (!entId.trim().isEmpty()) {
-            log.error("[Jupyter@getDirectoryBase] Ent id must be empty, not '" + entId + "'");
-            badRequest(request);
-        }
+        ParametersHelper.hasMissingParameters(new String[] {entId, userId}, handler -> {
+            if (handler.isRight()) {
+                if (!entId.trim().isEmpty()) {
+                    badRequest(request, "[Jupyter@getDirectoryBase] Ent id must be empty, not '" + entId + "'");
+                }
 
-        // Get documents from src Workspace
-        JsonObject baseDrc = new Directory().getSourceDirectoryInfos();
-        renderMeAndMyChildren(request, baseDrc, userId);
+                // Get documents from src Workspace
+                JsonObject baseDrc = new Directory().getSourceDirectoryInfos();
+                renderMeAndMyChildren(request, baseDrc, userId);
 
 //       // TODO keep this commented part (originally for the idea that all Jupyter files would into a specific folder called 'Jupyter' on the workspace)
 //
@@ -88,6 +90,11 @@ public class DirectoryController extends ControllerHelper {
 //                badRequest(request);
 //            }
 //        });
+            }
+            else {
+                badRequest(request, "[Jupyter@getBaseDirectory] " + handler.left().getValue());
+            }
+        });
     }
 
     @Get("/directory")
@@ -98,14 +105,26 @@ public class DirectoryController extends ControllerHelper {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
 
-        workspaceHelper.getDocument(entId, getFolder -> {
-            if (getFolder.succeeded()) {
-                JsonObject directory = new Directory(getFolder.result().body().getJsonObject("result")).toJson();
-                renderMeAndMyChildren(request, directory, userId);
+        ParametersHelper.hasMissingParameters(new String[] {entId, userId}, handler -> {
+            if (handler.isRight()) {
+                workspaceHelper.getDocument(entId, getFolder -> {
+                    if (getFolder.succeeded()) {
+                        JsonObject result = getFolder.result().body().getJsonObject("result");
+                        if (result != null) {
+                            JsonObject directory = new Directory(getFolder.result().body().getJsonObject("result")).toJson();
+                            renderMeAndMyChildren(request, directory, userId);
+                        }
+                        else {
+                            badRequest(request, "[Jupyter@getDirectory] No document found for entId : " + entId);
+                        }
+                    }
+                    else {
+                        badRequest(request, getFolder.cause().getMessage());
+                    }
+                });
             }
             else {
-                log.error(getFolder.cause().getMessage());
-                badRequest(request);
+                badRequest(request, "[Jupyter@getDirectory] " + handler.left().getValue());
             }
         });
     }
@@ -117,7 +136,15 @@ public class DirectoryController extends ControllerHelper {
     public void createDirectory(HttpServerRequest request) {
         String userId = request.headers().get("User-Id");
         String userName = request.headers().get("User-Name");
-        RequestUtils.bodyToJson(request, body -> createFolder(request, body, userId, userName));
+
+        ParametersHelper.hasMissingParameters(new String[] {userId, userName}, handler -> {
+            if (handler.isRight()) {
+                RequestUtils.bodyToJson(request, body -> createFolder(request, body, userId, userName));
+            }
+            else {
+                badRequest(request, "[Jupyter@createDirectory] " + handler.left().getValue());
+            }
+        });
     }
 
     @Delete("/directory")
@@ -127,7 +154,15 @@ public class DirectoryController extends ControllerHelper {
     public void deleteDirectory(HttpServerRequest request) {
         String entId = request.getParam("ent_id");
         String userId = request.headers().get("User-Id");
-        documentService.delete(entId, userId, defaultResponseHandler(request));
+
+        ParametersHelper.hasMissingParameters(new String[] {entId, userId}, handler -> {
+            if (handler.isRight()) {
+                documentService.delete(entId, userId, defaultResponseHandler(request));
+            }
+            else {
+                badRequest(request, "[Jupyter@deleteDirectory] " + handler.left().getValue());
+            }
+        });
     }
 
     private void renderMeAndMyChildren(HttpServerRequest request, JsonObject directory, String userId) {
