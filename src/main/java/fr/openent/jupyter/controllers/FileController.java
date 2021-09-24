@@ -198,7 +198,6 @@ public class FileController extends ControllerHelper {
 
                             documentService.update(entId, uploaded, updateEvent -> {
                                 if (updateEvent.isRight()) {
-                                    log.info("[Jupyter@updateFile] File updated for path '" + body.getString("path") + "' with body " + body);
 
                                     workspaceHelper.getDocument(entId, getDocumentEvent -> {
                                         if (getDocumentEvent.succeeded()) {

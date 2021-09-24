@@ -1,19 +1,14 @@
 package fr.openent.jupyter.service.Impl;
 
 import fr.openent.jupyter.Jupyter;
-import fr.openent.jupyter.helper.FutureHelper;
 import fr.openent.jupyter.service.DocumentService;
-import fr.wseduc.mongodb.MongoDb;
 import fr.wseduc.webutils.Either;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.entcore.common.mongodb.MongoDbResult;
 import org.entcore.common.storage.Storage;
 
 import static fr.wseduc.webutils.Utils.handlerToAsyncHandler;

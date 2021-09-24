@@ -1,16 +1,13 @@
 package fr.openent.jupyter.models;
 
+import fr.openent.jupyter.helper.DateHelper;
 import fr.openent.jupyter.utils.JupyterType;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-
 public class File {
     private static final Logger log = LoggerFactory.getLogger(File.class);
-    private static final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm.s.S");
 
     public String id;
     public String name;
@@ -25,18 +22,14 @@ public class File {
     public File(JsonObject document) {
         String mimetype = document.getJsonObject("metadata").getString("content-type");
 
-        try {
-            this.id = document.getString("_id");
-            this.name = document.getString("name");
-            this.last_modified = formatter.parse(document.getString("modified")).toInstant().toString();
-            this.created = formatter.parse(document.getString("created")).toInstant().toString();
-            this.type = mimetype == null ? JupyterType.NOTEBOOK.getName() : JupyterType.FILE.getName();
-            this.format = mimetype == null ? "json" : mimetype.equals("text/plain") ? "text" : "base64";
-            this.mimetype = mimetype;
-            this.writable = true;
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
+        this.id = document.getString("_id");
+        this.name = document.getString("name");
+        this.type = mimetype == null ? JupyterType.NOTEBOOK.getName() : JupyterType.FILE.getName();
+        this.format = mimetype == null ? "json" : mimetype.equals("text/plain") ? "text" : "base64";
+        this.mimetype = mimetype;
+        this.writable = true;
+        this.last_modified = DateHelper.tryFormat(document.getString("modified"));
+        this.created = DateHelper.tryFormat(document.getString("created"));
     }
 
     public File() {}
