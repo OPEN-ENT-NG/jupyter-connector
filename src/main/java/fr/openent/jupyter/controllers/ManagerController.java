@@ -16,21 +16,24 @@ import fr.wseduc.security.SecuredAction;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.entcore.common.bus.WorkspaceHelper;
 import org.entcore.common.controller.ControllerHelper;
 import org.entcore.common.http.filter.ResourceFilter;
 import org.entcore.common.neo4j.Neo4j;
 import org.entcore.common.neo4j.Neo4jResult;
 import org.entcore.common.storage.Storage;
+import org.entcore.common.user.UserInfos;
 
 public class ManagerController extends ControllerHelper {
-    private static final Logger log = LoggerFactory.getLogger(ManagerController.class);
     private final DocumentService documentService;
+    private final WorkspaceHelper workspaceHelper;
+
 
     public ManagerController(EventBus eb, Storage storage) {
         super();
         documentService = new DefaultDocumentService(eb, storage);
+        workspaceHelper = new WorkspaceHelper(eb, storage);
+
     }
 
     @Get("")
@@ -79,18 +82,27 @@ public class ManagerController extends ControllerHelper {
         String entId = request.getParam("ent_id");
         String name = request.getParam("name");
         String userId = request.headers().get("User-Id");
+        String parentId = request.getParam("parent_id");
 
         ParametersHelper.hasMissingOrEmptyParameters(new String[] {entId, name, userId}, handler -> {
             if (handler.isRight()) {
+                UserInfos user = new UserInfos();
+                user.setUserId(userId);
                 documentService.rename(entId, userId, name, renameItem -> {
                     if (renameItem.isRight()) {
                         JsonObject item = renameItem.right().getValue();
 
-                        if (item.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
-                            renderJson(request, new Directory(item).toJson());
-                        }
-                        else {
-                            renderJson(request, new File(item).toJson().put("content", ""));
+                        if (parentId == null) { // If parent not change
+                            render(request, item);
+                        } else {
+                            workspaceHelper.moveDocument(entId, parentId.equals("") ? null : parentId, user, moveEvent -> {
+                                if (moveEvent.succeeded()) {
+                                    render(request, item);
+                                } else {
+                                    badRequest(request, "[Jupyter@createFile] Failed to move a workspace document : " +
+                                            moveEvent.cause().getMessage());
+                                }
+                            });
                         }
                     }
                     else {
@@ -102,5 +114,14 @@ public class ManagerController extends ControllerHelper {
                 badRequest(request, "[Jupyter@rename] " + handler.left().getValue());
             }
         });
+    }
+
+    private void render(HttpServerRequest request, JsonObject item) {
+        if (item.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
+            renderJson(request, new Directory(item).toJson());
+        }
+        else {
+            renderJson(request, new File(item).toJson().put("content", ""));
+        }
     }
 }

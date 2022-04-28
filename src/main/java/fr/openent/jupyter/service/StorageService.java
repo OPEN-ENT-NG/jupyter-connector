@@ -2,6 +2,7 @@ package fr.openent.jupyter.service;
 
 import fr.wseduc.webutils.Either;
 import io.vertx.core.Handler;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 
 public interface StorageService {
@@ -11,7 +12,7 @@ public interface StorageService {
      * @param body      Body of the file to upload
      * @param handler   Function handler returning data
      */
-    void add(JsonObject body, Handler<Either<String, JsonObject>> handler);
+    void add(JsonObject body, Buffer buff, Buffer contentToAdd, Handler<Either<String, JsonObject>> handler);
 
     /**
      * Remove file in file system
