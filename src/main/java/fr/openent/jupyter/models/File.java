@@ -20,12 +20,18 @@ public class File {
     public boolean writable;
 
     public File(JsonObject document) {
-        String mimetype = document.getJsonObject("metadata").getString("content-type");
 
         this.id = document.getString("_id");
         this.name = document.getString("name");
-        this.type = mimetype == null ? JupyterType.NOTEBOOK.getName() : JupyterType.FILE.getName();
-        this.format = mimetype == null ? "json" : mimetype.equals("text/plain") ? "text" : "base64";
+
+        String mimetype = document.getJsonObject("metadata").getString("content-type");
+        String fileExtension = this.name.substring(this.name.lastIndexOf("."));
+
+        this.type = mimetype == null && fileExtension.equals("ipynb") ? JupyterType.NOTEBOOK.getName() : JupyterType.FILE.getName();
+        if(mimetype == null && (fileExtension.equals("ipynb") || fileExtension.equals("json")))
+            this.format = "json";
+        else
+            this.format = mimetype != null && mimetype.equals("text/plain") ? "text" : "base64";
         this.mimetype = mimetype;
         this.writable = true;
         this.last_modified = DateHelper.tryFormat(document.getString("modified"));

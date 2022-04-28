@@ -22,19 +22,16 @@ public class DefaultStorageService implements StorageService {
     }
 
     @Override
-    public void add(JsonObject body, Handler<Either<String, JsonObject>> handler) {
+    public void add(JsonObject body, Buffer buff, Buffer contentToAdd, Handler<Either<String, JsonObject>> handler) {
+        String contentType;
         String content;
         byte[] byteContent;
-        String contentType;
 
         switch (body.getString("format")) {
             case "json": // Case notebook created from Jupyter
-                content = body.getJsonObject("content").toString();
-                byteContent = content.getBytes(StandardCharsets.UTF_8);
                 contentType = null;
                 break;
             case "text": // Case text created from Jupyter
-                byteContent = body.getString("content").getBytes(StandardCharsets.UTF_8);
                 contentType = "text/plain";
                 break;
             case "base64": // Case file imported in Jupyter from local computer
@@ -43,17 +40,17 @@ public class DefaultStorageService implements StorageService {
                     String fileExtension = docName.substring(docName.lastIndexOf("."));
 
                     if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook
-                        content = new String(Base64.getDecoder().decode(body.getString("content")));
-                        byteContent = content.getBytes(StandardCharsets.UTF_8);
                         contentType = null;
                     }
                     else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text
-                        content = new String(Base64.getDecoder().decode(body.getString("content")));
+                        content = new String(Base64.getDecoder().decode(buff.toString()));
                         byteContent = content.getBytes(StandardCharsets.UTF_8);
+                        buff = Buffer.buffer(byteContent);
                         contentType = URLConnection.getFileNameMap().getContentTypeFor(docName);
                     }
                     else { // Case other type files
-                        byteContent = Base64.getDecoder().decode(body.getString("content").getBytes(StandardCharsets.UTF_8));
+                        byteContent = Base64.getDecoder().decode(buff.toString().getBytes(StandardCharsets.UTF_8));
+                        buff = Buffer.buffer(byteContent);
                         contentType = URLConnection.getFileNameMap().getContentTypeFor(docName);
                     }
                 }
@@ -67,8 +64,11 @@ public class DefaultStorageService implements StorageService {
                 return;
         }
 
-        Buffer buffer = Buffer.buffer(byteContent);
-        storage.writeBuffer(UUID.randomUUID().toString(), buffer, contentType, body.getString("name"), file -> {
+        if(contentToAdd != null){
+            buff = contentToAdd.appendBuffer(buff);
+        }
+
+        storage.writeBuffer(UUID.randomUUID().toString(), buff, contentType, body.getString("name"), file -> {
             if ("ok".equals(file.getString("status"))) {
                 handler.handle(new Either.Right<>(file));
             }
