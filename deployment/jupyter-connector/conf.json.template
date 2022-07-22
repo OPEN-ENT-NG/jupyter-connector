@@ -1,5 +1,5 @@
 {
-  "name": "fr.openent~jupyter-connector~1.2.0",
+  "name": "fr.openent~jupyter-connector~1.2-SNAPSHOT",
   "config": {
     "main" : "fr.openent.jupyter.Jupyter",
     "port" : 8069,
