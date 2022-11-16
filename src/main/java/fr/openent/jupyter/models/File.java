@@ -3,11 +3,8 @@ package fr.openent.jupyter.models;
 import fr.openent.jupyter.helper.DateHelper;
 import fr.openent.jupyter.utils.JupyterType;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 
 public class File {
-    private static final Logger log = LoggerFactory.getLogger(File.class);
 
     public String id;
     public String name;
@@ -25,7 +22,7 @@ public class File {
         this.name = document.getString("name");
 
         String mimetype = document.getJsonObject("metadata").getString("content-type");
-        String fileExtension = this.name.substring(this.name.lastIndexOf("."));
+        String fileExtension = this.name.contains(".") ? this.name.substring(this.name.lastIndexOf(".")) : "";
 
         this.type = mimetype == null && fileExtension.equals("ipynb") ? JupyterType.NOTEBOOK.getName() : JupyterType.FILE.getName();
         if(mimetype == null && (fileExtension.equals("ipynb") || fileExtension.equals("json")))

@@ -172,12 +172,16 @@ public class DirectoryController extends ControllerHelper {
 
                 // Fill content of directory
                 for (Object child : children) {
-                    JsonObject doc = (JsonObject) child;
-                    if (doc.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
-                        directory.getJsonArray("content").add(new Directory(doc).toJson());
-                    }
-                    else {
-                        directory.getJsonArray("content").add(new File(doc).toJson().put("content", ""));
+                    try {
+                        JsonObject doc = (JsonObject) child;
+                        if (doc.getString("eType").equals(WorkspaceType.FOLDER.getName())) {
+                            directory.getJsonArray("content").add(new Directory(doc).toJson());
+                        } else {
+                            directory.getJsonArray("content").add(new File(doc).toJson().put("content", ""));
+                        }
+                    } catch (Exception e) {
+                        log.error("[Jupyter@renderMeAndMyChildren] Exception raised : " + e +
+                                "\nfor doc : " + child.toString());
                     }
                 }
 

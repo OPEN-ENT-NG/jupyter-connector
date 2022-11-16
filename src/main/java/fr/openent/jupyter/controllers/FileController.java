@@ -60,46 +60,35 @@ public class FileController extends ControllerHelper {
                             workspaceHelper.readFile(id, content -> {
                                 if (content != null) {
                                     JsonObject file = new File(document).toJson();
-
                                     String docName = document.getString("name");
-                                    if (docName.contains(".")) {
-                                        String fileExtension = docName.substring(docName.lastIndexOf("."));
-
-                                        if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook
+                                    String fileExtension = docName.contains(".") ? docName.substring(docName.lastIndexOf(".")) : "";
+                                    if (fileExtension.equals(Jupyter.EXTENSION_NOTEBOOK)) { // Case notebook
+                                        file.put("content", content.toString());
+                                        file.put("format", "json");
+                                        file.put("mimetype", (String) null);
+                                        file.put("type", "notebook");
+                                    }
+                                    switch (file.getString("format")) {
+                                        case "json": // Case notebook created from Jupyter
+                                        case "text": // Case file text created from Jupyter
                                             file.put("content", content.toString());
-                                            file.put("format", "json");
-                                            file.put("mimetype", (String) null);
-                                            file.put("type", "notebook");
-                                        }
-
-                                        switch (file.getString("format")) {
-                                            case "json": // Case notebook created from Jupyter
-                                            case "text": // Case file text created from Jupyter
-                                                file.put("content", content.toString());
-                                                break;
-                                            case "base64": // Case file imported from Jupyter or Workspace
-                                                if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text en base64
-                                                    String finalContent = new String(Base64.getDecoder().decode(content.toString()));
-                                                    file.put("content", finalContent);
-                                                    file.put("format", "json");
-                                                }
-                                                else { // Case other type files, to put in base64
-                                                    String finalContent = Base64.getEncoder().encodeToString(content.getBytes());
-                                                    file.put("content", finalContent);
-                                                }
-                                                break;
-                                            default:
-                                                log.error("[Jupyter@getFile] File format unknown : " + file.getString("format"));
-                                                break;
-                                        }
-
-                                        renderJson(request, file);
+                                            break;
+                                        case "base64": // Case file imported from Jupyter or Workspace
+                                            String finalContent = Base64.getEncoder().encodeToString(content.getBytes());
+                                            if (fileExtension.isEmpty()) { //if no file extension, we don't change the content
+                                                finalContent = content.toString();
+                                            } else if (Jupyter.EXTENSIONS_TEXT.contains(fileExtension)) { // Case text en base64
+                                                finalContent = new String(Base64.getDecoder().decode(content.toString()));
+                                                file.put("format", "json");
+                                            }
+                                            file.put("content", finalContent);
+                                            break;
+                                        default:
+                                            log.error("[Jupyter@getFile] File format unknown : " + file.getString("format"));
+                                            break;
                                     }
-                                    else {
-                                        badRequest(request, "[Jupyter@getFile] Filename does not contains extension : " + docName);
-                                    }
-                                }
-                                else {
+                                    renderJson(request, file);
+                                } else {
                                     badRequest(request, "[Jupyter@getFile] No file found in storage for id : " + id);
                                 }
                             });
