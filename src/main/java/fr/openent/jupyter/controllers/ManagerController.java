@@ -53,12 +53,12 @@ public class ManagerController extends ControllerHelper {
         ParametersHelper.hasMissingOrEmptyParameters(new String[] {user}, handler -> {
            if (handler.isRight()) {
                JsonObject params = new JsonObject().put("JUPYTERHUB_USER", request.getParam("user"));
-               String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u";
+               String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u.displayName, u.id";
                Neo4j.getInstance().execute(queryUsersNeo4j, params, Neo4jResult.validUniqueResultHandler(getNeoEvent -> {
                    if (getNeoEvent.isRight()) {
                        JsonObject userinfos = getNeoEvent.right().getValue();
                        if (userinfos != null && !userinfos.isEmpty()) {
-                           renderJson(request, userinfos.getJsonObject("u").getJsonObject("data"));
+                           renderJson(request, new JsonObject().put("id", userinfos.getString("u.id")).put("displayName", userinfos.getString("u.displayName")));
                        }
                        else {
                            badRequest(request, "[Jupyter@getUserInfos] Incorrect user");
