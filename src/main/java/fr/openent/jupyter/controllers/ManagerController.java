@@ -23,6 +23,7 @@ import org.entcore.common.neo4j.Neo4j;
 import org.entcore.common.neo4j.Neo4jResult;
 import org.entcore.common.storage.Storage;
 import org.entcore.common.user.UserInfos;
+import fr.openent.jupyter.core.constants.Field;
 
 public class ManagerController extends ControllerHelper {
     private final DocumentService documentService;
@@ -48,17 +49,17 @@ public class ManagerController extends ControllerHelper {
     @ResourceFilter(AccessRight.class)
     @SecuredAction(value = "", type = ActionType.RESOURCE)
     public void getUserInfos(HttpServerRequest request) {
-        String user = request.getParam("user");
+        String user = request.getParam(Field.USER);
 
         ParametersHelper.hasMissingOrEmptyParameters(new String[] {user}, handler -> {
            if (handler.isRight()) {
-               JsonObject params = new JsonObject().put("JUPYTERHUB_USER", request.getParam("user"));
-               String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u";
+               JsonObject params = new JsonObject().put(Field.JUPYTERHUB_USER, request.getParam(Field.USER));
+               String queryUsersNeo4j = "MATCH (u:User) WHERE u.login={JUPYTERHUB_USER} RETURN u.displayName as displayName, u.id as id";
                Neo4j.getInstance().execute(queryUsersNeo4j, params, Neo4jResult.validUniqueResultHandler(getNeoEvent -> {
                    if (getNeoEvent.isRight()) {
                        JsonObject userinfos = getNeoEvent.right().getValue();
                        if (userinfos != null && !userinfos.isEmpty()) {
-                           renderJson(request, userinfos.getJsonObject("u").getJsonObject("data"));
+                           renderJson(request, new JsonObject().put(Field.ID, userinfos.getString(Field.ID)).put(Field.DISPLAYNAME, userinfos.getString(Field.DISPLAYNAME)));
                        }
                        else {
                            badRequest(request, "[Jupyter@getUserInfos] Incorrect user");
