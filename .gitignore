@@ -13,3 +13,6 @@
 /src/main/resources/view/
 /src/main/resources/public/template/entcore/
 /rev-manifest.json
+.env
+target
+dependency-reduced-pom.xml
