@@ -4,6 +4,7 @@ import fr.openent.jupyter.controllers.CheckpointController;
 import fr.openent.jupyter.controllers.DirectoryController;
 import fr.openent.jupyter.controllers.FileController;
 import fr.openent.jupyter.controllers.ManagerController;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
@@ -24,8 +25,8 @@ public class Jupyter extends BaseServer {
 	public static final String ACCESS_RIGHT = "jupyter.access";
 
 	@Override
-	public void start() throws Exception {
-		super.start();
+	public void start(Promise<Void> startPromise) throws Exception {
+		super.start(startPromise);
 
 		EXTENSION_NOTEBOOK = config.getJsonObject("file-extensions").getString("notebook");
 		EXTENSIONS_TEXT = config.getJsonObject("file-extensions").getJsonArray("text");
@@ -37,6 +38,9 @@ public class Jupyter extends BaseServer {
 		addController(new DirectoryController(eb, storage));
 		addController(new FileController(eb, storage));
 		addController(new ManagerController(eb, storage));
+
+		startPromise.tryComplete();
+		startPromise.tryFail("[Jupyter-connector@Jupyter::start] Fail to start Jupyter-connector");
 	}
 
 }
