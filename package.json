@@ -1,6 +1,6 @@
 {
   "name": "Jupyter-connector",
-  "version": "2.0.0",
+  "version": "2.0.0-dev.1",
   "description": "Jupyter-connector",
   "main": "gulpfile.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "homepage": "",
   "dependencies": {
-    "entcore": "4.8.11",
+    "entcore": "dev",
     "@types/core-js": "0.9.42",
     "awesome-typescript-loader": "3.2.1",
     "axios": "0.16.2",
