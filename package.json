@@ -17,7 +17,7 @@
   },
   "homepage": "",
   "dependencies": {
-    "entcore": "dev",
+    "entcore": "zookeeper",
     "@types/core-js": "0.9.42",
     "awesome-typescript-loader": "3.2.1",
     "axios": "0.16.2",
@@ -33,7 +33,7 @@
     "entcore-toolkit": "^1.0.1"
   },
   "devDependencies": {
-     "@types/jquery": "^2.0.34",
+    "@types/jquery": "^2.0.34",
     "gulp-replace": "^1.1.3"
   }
 }
