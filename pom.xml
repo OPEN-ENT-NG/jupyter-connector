@@ -31,7 +31,7 @@
     <properties>
         <toolsVersion>2.0.0-final</toolsVersion>
         <junitVersion>5.1.0</junitVersion>
-        <entCoreVersion>6.9-SNAPSHOT</entCoreVersion>
+        <entCoreVersion>6.10-SNAPSHOT</entCoreVersion>
     </properties>
 
 
