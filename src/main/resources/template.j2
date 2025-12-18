@@ -1,0 +1,23 @@
+{
+  "name": "fr.openent~jupyter-connector",
+  "config": {
+    "main" : "fr.openent.jupyter.Jupyter",
+    "port" : 8069,
+    "app-name" : "Jupyter",
+    "app-address" : "/jupyter",
+    "app-icon" : "Jupyter-connector-large",
+    "host": "https://{{ host }}",
+    "ssl" : true,
+    {% if overrideTheme %} "override-theme": {{ override2d }}, {% endif %}
+    "auto-redeploy": false,
+    "userbook-host": "https://{{ host }}",
+    "integration-mode": "{{ integration_mode|default('HTTP') }}",
+    "app-registry.port" : 8012,
+    "mode" : "prod",
+    "entcore.port" : 8009,
+    "file-extensions": {
+      "notebook": ".ipynb",
+      "text": [".txt", ".text"]
+    }
+  }
+}
