@@ -2,6 +2,10 @@
   "name": "fr.openent~jupyter-connector",
   "config": {
     "main" : "fr.openent.jupyter.Jupyter",
+    "probes": [
+      "org.entcore.common.http.health.Neo4jProbe",
+      "org.entcore.common.http.health.MongoProbe"
+    ],
     "port" : 8069,
     "app-name" : "Jupyter",
     "app-address" : "/jupyter",
