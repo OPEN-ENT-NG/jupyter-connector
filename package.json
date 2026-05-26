@@ -1,6 +1,6 @@
 {
   "name": "Jupyter-connector",
-  "version": "2.1.4-dev.0",
+  "version": "2.1.4-dev.1",
   "description": "Jupyter-connector",
   "main": "gulpfile.js",
   "scripts": {
