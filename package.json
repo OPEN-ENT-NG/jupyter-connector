@@ -1,6 +1,6 @@
 {
   "name": "Jupyter-connector",
-  "version": "2.2.5",
+  "version": "2.2.5-dev.0",
   "description": "Jupyter-connector",
   "main": "gulpfile.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "homepage": "",
   "dependencies": {
-    "entcore": "4.8.20",
+    "entcore": "dev",
     "@types/core-js": "0.9.42",
     "awesome-typescript-loader": "3.2.1",
     "axios": "0.16.2",
@@ -30,7 +30,7 @@
     "webpack": "3.1.0",
     "webpack-stream": "3.2.0",
     "yargs": "^8.0.2",
-    "entcore-toolkit": "2.0.0"
+    "entcore-toolkit": "dev"
   },
   "devDependencies": {
     "@types/jquery": "^2.0.34",
